@@ -41,8 +41,9 @@ jobs:
 
       - name: Download deps
         run: go mod download
-
-      - name: Build
+      - name: Build (Unix)
+        if: runner.os != 'Windows'
+        shell: bash
         env:
           CGO_ENABLED: 0
           GOOS: ${{ matrix.goos }}
@@ -51,6 +52,16 @@ jobs:
           BIN=bwrs
           if [ "${{ matrix.goos }}" = "windows" ]; then BIN="${BIN}.exe"; fi
           go build -o "${BIN}" .
+      - name: Build (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        env:
+          CGO_ENABLED: 0
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          $BIN = "bwrs.exe"
+          go build -o "$BIN" .
 
       - name: Package (Unix)
         if: runner.os != 'Windows'
