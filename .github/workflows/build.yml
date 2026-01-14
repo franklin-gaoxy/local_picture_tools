@@ -1,0 +1,74 @@
+name: Build (main)
+
+on:
+  push:
+    branches: [ "main" ]
+  workflow_dispatch:
+
+jobs:
+  build:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+          - os: ubuntu-latest
+            goos: linux
+            goarch: arm64
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+    runs-on: ${{ matrix.os }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+          cache: true
+
+      - name: Download deps
+        run: go mod download
+
+      - name: Build
+        env:
+          CGO_ENABLED: 0
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          BIN=bwrs
+          if [ "${{ matrix.goos }}" = "windows" ]; then BIN="${BIN}.exe"; fi
+          go build -o "${BIN}" .
+
+      - name: Package (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p dist
+          BIN=bwrs
+          if [ "${{ matrix.goos }}" = "windows" ]; then BIN="${BIN}.exe"; fi
+          mv "${BIN}" "dist/${BIN}"
+          (cd dist && zip -r "bwrs-${{ matrix.goos }}-${{ matrix.goarch }}.zip" "${BIN}")
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Move-Item -Force bwrs.exe dist\\bwrs.exe
+          Compress-Archive -Path dist\\bwrs.exe -DestinationPath dist\\bwrs-windows-${{ matrix.goarch }}.zip
+
+      - name: Upload artifact
+        uses: actions/upload-artifact@v4
+        with:
+          name: bwrs-${{ matrix.goos }}-${{ matrix.goarch }}
+          path: dist/*.zip

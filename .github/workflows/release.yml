@@ -1,0 +1,77 @@
+name: Release Build
+
+on:
+  release:
+    types: [ published ]
+  workflow_dispatch:
+
+jobs:
+  build-and-release:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            goos: linux
+            goarch: amd64
+          - os: ubuntu-latest
+            goos: linux
+            goarch: arm64
+          - os: macos-latest
+            goos: darwin
+            goarch: amd64
+          - os: macos-latest
+            goos: darwin
+            goarch: arm64
+          - os: windows-latest
+            goos: windows
+            goarch: amd64
+    runs-on: ${{ matrix.os }}
+    permissions:
+      contents: write
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Setup Go
+        uses: actions/setup-go@v5
+        with:
+          go-version: 'stable'
+          cache: true
+
+      - name: Download deps
+        run: go mod download
+
+      - name: Build
+        env:
+          CGO_ENABLED: 0
+          GOOS: ${{ matrix.goos }}
+          GOARCH: ${{ matrix.goarch }}
+        run: |
+          BIN=bwrs
+          if [ "${{ matrix.goos }}" = "windows" ]; then BIN="${BIN}.exe"; fi
+          go build -o "${BIN}" .
+
+      - name: Package (Unix)
+        if: runner.os != 'Windows'
+        run: |
+          mkdir -p dist
+          BIN=bwrs
+          if [ "${{ matrix.goos }}" = "windows" ]; then BIN="${BIN}.exe"; fi
+          mv "${BIN}" "dist/${BIN}"
+          (cd dist && zip -r "bwrs-${{ matrix.goos }}-${{ matrix.goarch }}.zip" "${BIN}")
+
+      - name: Package (Windows)
+        if: runner.os == 'Windows'
+        shell: pwsh
+        run: |
+          New-Item -ItemType Directory -Force -Path dist | Out-Null
+          Move-Item -Force bwrs.exe dist\\bwrs.exe
+          Compress-Archive -Path dist\\bwrs.exe -DestinationPath dist\\bwrs-windows-${{ matrix.goarch }}.zip
+
+      - name: Attach to Release
+        uses: softprops/action-gh-release@v2
+        with:
+          files: dist/*.zip
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
