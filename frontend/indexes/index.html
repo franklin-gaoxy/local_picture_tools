@@ -1,0 +1,131 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>数据库索引</title>
+  <style>
+    body{background:#0d1117;color:#c9d1d9;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;margin:0}
+    .titlebar{display:flex;align-items:center;justify-content:space-between;background:#161b22;border-bottom:1px solid #30363d;padding:10px 16px;position:sticky;top:0}
+    .title-left{display:flex;gap:8px}
+    .title-left .btn{background:transparent;border:0;color:#c9d1d9;padding:6px 8px;border-radius:6px;cursor:pointer}
+    .title-right{display:flex;gap:8px;align-items:center}
+    .title-right .btn{background:transparent;border:1px solid #30363d;color:#c9d1d9;padding:6px 8px;border-radius:6px;cursor:pointer}
+    .title-right .setting{background:#21262d;border:1px solid #30363d}
+    .layout{display:flex}
+    .sidebar{width:220px;background:#161b22;border-right:1px solid #30363d;min-height:calc(100vh - 46px);padding:10px;transform:translateX(0);transition:transform .2s}
+    .sidebar.hidden{transform:translateX(-100%)}
+    .sidebar .item{display:block;color:#c9d1d9;text-decoration:none;padding:6px 8px;border-radius:6px}
+    .content{flex:1;padding:16px}
+    .toggle{margin-right:8px}
+    .cards{display:grid;grid-template-columns:repeat(2, minmax(0,1fr));gap:12px;margin-top:12px}
+    .card{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:12px}
+    .card h2{font-size:16px;margin:0 0 8px}
+    .list{margin-top:12px}
+    .index-item{display:flex;align-items:center;justify-content:space-between;background:#0d1117;border:1px solid #30363d;border-radius:6px;padding:8px;margin-bottom:8px}
+    .index-meta{font-size:12px;color:#8b949e}
+    .link{color:#58a6ff;text-decoration:none}
+  </style>
+</head>
+<body>
+  <div class="titlebar">
+    <div class="title-left">
+      <button class="btn toggle" id="toggle">侧边栏</button>
+      <div id="title-left"></div>
+    </div>
+    <div class="title-right">
+      <div id="title-right"></div>
+      <button class="btn setting" onclick="location.href='/setting'">设置</button>
+    </div>
+  </div>
+  <div class="layout">
+    <div class="sidebar" id="sidebar">
+      <div id="sidebar-list"></div>
+    </div>
+    <div class="content">
+      <div class="cards">
+        <div class="card" style="grid-column:1/-1">
+          <h2>数据库索引列表</h2>
+          <div id="indexes" class="list"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const api = window.location.origin;
+    document.getElementById('toggle').addEventListener('click', ()=>{
+      document.getElementById('sidebar').classList.toggle('hidden');
+    });
+    async function loadButtons(){
+      const res = await fetch(api + '/api/buttons', {credentials:'same-origin'});
+      if(res.redirected || res.status === 401){ window.location.href = '/login'; return; }
+      const data = await res.json();
+      const items = (data && data.items) || [];
+      const sidebarList = document.getElementById('sidebar-list');
+      const titleLeft = document.getElementById('title-left');
+      const titleRight = document.getElementById('title-right');
+      sidebarList.innerHTML = '';
+      titleLeft.innerHTML = '';
+      titleRight.innerHTML = '';
+      for(const it of items){
+        const name = it.Name || it.name;
+        const url = it.Url || it.url;
+        const type = it.Type || it.type;
+        if(type === 'left-sidebar'){
+          const a = document.createElement('a');
+          a.className = 'item';
+          a.textContent = name;
+          a.href = url;
+          sidebarList.appendChild(a);
+        }else if(type === 'title'){
+          const b = document.createElement('button');
+          b.className = 'btn';
+          b.textContent = name;
+          b.onclick = ()=>{ location.href = url; };
+          titleLeft.appendChild(b);
+        }else if(type === 'title-right'){
+          const b = document.createElement('button');
+          b.className = 'btn';
+          b.textContent = name;
+          b.onclick = ()=>{ location.href = url; };
+          titleRight.appendChild(b);
+        }
+      }
+    }
+    async function loadIndexes(){
+      const res = await fetch(api + '/api/indexes', {credentials:'same-origin'});
+      if(res.status === 401){ window.location.href = '/login'; return; }
+      const d = await res.json();
+      const list = (d && d.items) || [];
+      const box = document.getElementById('indexes');
+      box.innerHTML = '';
+      if(list.length === 0){
+        box.textContent = '暂无索引';
+        return;
+      }
+      for(const it of list){
+        const table = it.TableName || it.table_name || '';
+        const name = it.DisplayName || it.display_name || table;
+        const desc = it.Description || it.description || '';
+        const created = it.CreatedAt || it.created_at || '';
+        const row = document.createElement('div');
+        row.className = 'index-item';
+        const left = document.createElement('div');
+        left.innerHTML = '<b>' + name + '</b><div class="index-meta">表名: ' + table + ' · 创建时间: ' + created + '</div><div class="index-meta">描述: ' + (desc||'-') + '</div>';
+        const right = document.createElement('div');
+        const a = document.createElement('a');
+        a.className = 'link';
+        a.textContent = '查看详情';
+        a.href = '/indexes/detail.html?table=' + encodeURIComponent(table);
+        a.target = '_blank';
+        right.appendChild(a);
+        row.appendChild(left);
+        row.appendChild(right);
+        box.appendChild(row);
+      }
+    }
+    loadButtons();
+    loadIndexes();
+  </script>
+</body>
+</html>

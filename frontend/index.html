@@ -1,0 +1,205 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>首页</title>
+  <style>
+    body{background:#0d1117;color:#c9d1d9;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;margin:0}
+    .titlebar{display:flex;align-items:center;justify-content:space-between;background:#161b22;border-bottom:1px solid #30363d;padding:10px 16px;position:sticky;top:0}
+    .title-left{display:flex;gap:8px}
+    .title-left .btn{background:transparent;border:0;color:#c9d1d9;padding:6px 8px;border-radius:6px;cursor:pointer}
+    .title-right{display:flex;gap:8px;align-items:center}
+    .title-right .btn{background:transparent;border:1px solid #30363d;color:#c9d1d9;padding:6px 8px;border-radius:6px;cursor:pointer}
+    .title-right .setting{background:#21262d;border:1px solid #30363d}
+    .layout{display:flex}
+    .sidebar{width:220px;background:#161b22;border-right:1px solid #30363d;min-height:calc(100vh - 46px);padding:10px;transform:translateX(0);transition:transform .2s}
+    .sidebar.hidden{transform:translateX(-100%)}
+    .sidebar .item{display:block;color:#c9d1d9;text-decoration:none;padding:6px 8px;border-radius:6px}
+    .content{flex:1;padding:16px}
+    .toggle{margin-right:8px}
+    .cards{display:grid;grid-template-columns:repeat(3, minmax(0,1fr));gap:12px;margin-top:12px}
+    .cards2{display:grid;grid-template-columns:repeat(2, minmax(0,1fr));gap:12px;margin-top:12px}
+    .card{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:12px}
+    .card h2{font-size:16px;margin:0 0 8px}
+    .kv{margin:4px 0}
+    .kv span{color:#8b949e}
+    .list-columns{display:grid;gap:12px}
+    .list-columns ul{margin:0;padding-left:18px}
+    .mono{font-family: ui-monospace,SFMono-Regular,Menlo,Monaco,Consolas,'Liberation Mono','Courier New',monospace}
+    .fixed{height:280px}
+    .scrollbox{max-height:240px;overflow:auto}
+    .req-lines{max-height:240px;overflow:auto}
+    .req-line{white-space:nowrap}
+  </style>
+</head>
+<body>
+  <div class="titlebar">
+    <div class="title-left">
+      <button class="btn toggle" id="toggle">侧边栏</button>
+      <div id="title-left"></div>
+    </div>
+    <div class="title-right">
+      <div id="title-right"></div>
+      <button class="btn setting" onclick="location.href='/setting'">设置</button>
+    </div>
+  </div>
+  <div class="layout">
+    <div class="sidebar" id="sidebar">
+      <div id="sidebar-list"></div>
+    </div>
+    <div class="content">
+      <div class="cards">
+        <div class="card">
+          <h2>数据库信息</h2>
+          <div class="kv"><span>类型：</span><b id="db-type">-</b></div>
+          <div class="kv"><span>名称：</span><b id="db-name">-</b></div>
+          <div class="kv"><span>地址：</span><b id="db-host">-</b>:<b id="db-port">-</b></div>
+        </div>
+        <div class="card">
+          <h2>服务状态</h2>
+          <div class="kv"><span>启动时间：</span><b id="svc-start">-</b></div>
+          <div class="kv"><span>运行时长：</span><b id="svc-uptime">-</b></div>
+          <div class="kv"><span>总请求数：</span><b id="svc-total">-</b></div>
+        </div>
+        <div class="card">
+          <h2>访问地址</h2>
+          <div class="kv"><span>浏览器：</span><b id="browser-url">-</b></div>
+          <div class="kv"><span>后端识别：</span><b id="backend-host">-</b></div>
+          <div class="kv"><span>协议：</span><b id="backend-proto">-</b></div>
+          <div class="kv"><span>来源 IP：</span><b id="backend-ip">-</b></div>
+        </div>
+        <div class="card" style="grid-column:1/-1">
+          <h2>数据库表</h2>
+          <div id="db-tables" class="list-columns"></div>
+        </div>
+      </div>
+      <div class="cards2">
+        <div class="card fixed">
+          <h2>接口信息</h2>
+          <div id="api-stats" class="scrollbox"></div>
+        </div>
+        <div class="card fixed">
+          <h2>请求信息</h2>
+          <div id="req-list" class="mono req-lines"></div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const api = window.location.origin;
+    document.getElementById('toggle').addEventListener('click', ()=>{
+      document.getElementById('sidebar').classList.toggle('hidden');
+    });
+    async function load(){
+      const res = await fetch(api + '/api/buttons', {credentials:'same-origin'});
+      if(res.redirected || res.status === 401){ window.location.href = '/login'; return; }
+      const data = await res.json();
+      const items = (data && data.items) || [];
+      const sidebarList = document.getElementById('sidebar-list');
+      const titleLeft = document.getElementById('title-left');
+      const titleRight = document.getElementById('title-right');
+      sidebarList.innerHTML = '';
+      titleLeft.innerHTML = '';
+      titleRight.innerHTML = '';
+      for(const it of items){
+        const name = it.Name || it.name;
+        const url = it.Url || it.url;
+        const type = it.Type || it.type;
+        if(type === 'left-sidebar'){
+          const a = document.createElement('a');
+          a.className = 'item';
+          a.textContent = name;
+          a.href = url;
+          sidebarList.appendChild(a);
+        }else if(type === 'title'){
+          const b = document.createElement('button');
+          b.className = 'btn';
+          b.textContent = name;
+          b.onclick = ()=>{ location.href = url; };
+          titleLeft.appendChild(b);
+        }else if(type === 'title-right'){
+          const b = document.createElement('button');
+          b.className = 'btn';
+          b.textContent = name;
+          b.onclick = ()=>{ location.href = url; };
+          titleRight.appendChild(b);
+        }
+      }
+    }
+    async function loadDashboard(){
+      document.getElementById('browser-url').textContent = window.location.href;
+      const res = await fetch(api + '/api/dashboard', {credentials:'same-origin'});
+      if(res.status === 401){ window.location.href = '/login'; return; }
+      const d = await res.json();
+      const db = d.database || {};
+      const req = d.request || {};
+      const status = d.status || {};
+      const interfaces = d.interfaces || [];
+      const requests = d.requests || [];
+      document.getElementById('db-type').textContent = db.type || '-';
+      document.getElementById('db-name').textContent = db.name || '-';
+      document.getElementById('db-host').textContent = db.host || '-';
+      document.getElementById('db-port').textContent = (db.port!=null?db.port:'-');
+      document.getElementById('backend-host').textContent = req.host || '-';
+      document.getElementById('backend-proto').textContent = req.proto || '-';
+      document.getElementById('backend-ip').textContent = req.remote || '-';
+      document.getElementById('svc-start').textContent = status.startTime || '-';
+      const up = (status.uptimeSec!=null?status.uptimeSec:0);
+      const h = Math.floor(up/3600), m = Math.floor((up%3600)/60), s = up%60;
+      document.getElementById('svc-uptime').textContent = `${h}h ${m}m ${s}s`;
+      document.getElementById('svc-total').textContent = (status.totalRequests!=null?status.totalRequests:'-');
+      const tables = db.tables || [];
+      const cols = Math.max(1, Math.ceil(tables.length / 10));
+      const list = document.getElementById('db-tables');
+      list.style.gridTemplateColumns = `repeat(${cols}, minmax(0,1fr))`;
+      list.innerHTML = '';
+      for(let c=0;c<cols;c++){
+        const ul = document.createElement('ul');
+        for(let r=0;r<10;r++){
+          const idx = c*10 + r;
+          if(idx >= tables.length) break;
+          const li = document.createElement('li');
+          li.textContent = tables[idx];
+          ul.appendChild(li);
+        }
+        list.appendChild(ul);
+      }
+      const stats = document.getElementById('api-stats');
+      stats.innerHTML = '';
+      const allow = new Set(['GET /api/server/save','GET /api/server/duplicate']);
+      const filt = interfaces.filter(it=>allow.has((it.name||'')));
+      if(filt.length){
+        let html = '<table style="width:100%;border-collapse:collapse"><thead><tr><th style="text-align:left;border-bottom:1px solid #30363d;padding:6px">接口</th><th style="text-align:right;border-bottom:1px solid #30363d;padding:6px">请求次数</th></tr></thead><tbody>';
+        for(const it of filt){
+          const name = it.name || '';
+          const count = it.count || 0;
+          html += `<tr><td style="padding:6px;border-bottom:1px solid #30363d">${name}</td><td style="padding:6px;border-bottom:1px solid #30363d;text-align:right">${count}</td></tr>`;
+        }
+        html += '</tbody></table>';
+        stats.innerHTML = html;
+      }
+      const reqDiv = document.getElementById('req-list');
+      reqDiv.innerHTML = '';
+      const rFilt = requests.filter(r=>{
+        const p = r.path || '';
+        return p === '/api/server/save' || p === '/api/server/duplicate';
+      });
+      const latest = rFilt.slice(-50);
+      let out = '';
+      for(const r of latest){
+        const t = r.time || '';
+        const m = r.method || '';
+        const p = r.path || '';
+        const ip = r.ip || '';
+        const ps = r.params || {};
+        const kv = Object.entries(ps).map(([k,v])=>`${k}=${v}`).join('&');
+        out += `<div class="req-line">[${t}] ${ip} ${m} ${p} ${kv}</div>`;
+      }
+      reqDiv.innerHTML = out;
+    }
+    load();
+    loadDashboard();
+  </script>
+</body>
+</html>

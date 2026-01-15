@@ -1,0 +1,17 @@
+port: 8080
+database:
+  databaseType: mysql
+  connPath: "12345678"
+  path: "local_picture_tools"
+  host: "127.0.0.1"
+  port: 31756
+  authSource: ""
+  authType: "username_password"
+  description:
+    username: "root"
+    password: "12345678"
+  basename: ""
+login:
+  user:
+    username: "admin"
+    password: "admin123"

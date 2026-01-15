@@ -1,0 +1,100 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>目录展示</title>
+  <style>
+    body{background:#0d1117;color:#c9d1d9;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;margin:0}
+    .titlebar{display:flex;align-items:center;justify-content:space-between;background:#161b22;border-bottom:1px solid #30363d;padding:10px 16px;position:sticky;top:0}
+    .title-left{display:flex;gap:8px}
+    .title-left .btn{background:transparent;border:0;color:#c9d1d9;padding:6px 8px;border-radius:6px;cursor:pointer}
+    .title-right{display:flex;gap:8px;align-items:center}
+    .title-right .btn{background:transparent;border:1px solid #30363d;color:#c9d1d9;padding:6px 8px;border-radius:6px;cursor:pointer}
+    .title-right .setting{background:#21262d;border:1px solid #30363d}
+    .layout{display:flex}
+    .sidebar{width:220px;background:#161b22;border-right:1px solid #30363d;min-height:calc(100vh - 46px);padding:10px}
+    .sidebar .item{display:block;color:#c9d1d9;text-decoration:none;padding:6px 8px;border-radius:6px}
+    .content{flex:1;padding:16px}
+    .grid{display:grid;grid-template-columns:repeat(3, minmax(0,1fr));gap:8px}
+    .card{border:1px solid #30363d;border-radius:6px;padding:6px}
+    img{width:100%;height:auto;border-radius:4px}
+    .toggle{background:transparent;border:0;color:#c9d1d9}
+  </style>
+</head>
+<body>
+  <div class="titlebar">
+    <div class="title-left">
+      <button class="btn toggle" id="toggle">侧边栏</button>
+      <div id="title-left"></div>
+    </div>
+    <div class="title-right">
+      <div id="title-right"></div>
+      <button class="btn setting" onclick="location.href='/setting'">设置</button>
+    </div>
+  </div>
+  <div class="layout">
+    <div class="sidebar" id="sidebar">
+      <div id="sidebar-list"></div>
+    </div>
+    <div class="content">
+      <h2 id="dirTitle">目录展示</h2>
+      <div class="grid" id="grid"></div>
+    </div>
+  </div>
+  <script>
+    const api = window.location.origin;
+    function getParam(name){ const u=new URL(window.location.href); return u.searchParams.get(name)||''; }
+    function norm(p){ return (p||'').replace(/\\/g,'/'); }
+    function isImage(p){ return /\.(png|jpg|jpeg|gif|webp|bmp)$/i.test(p||''); }
+    function parentOf(p){ const np=norm(p); const i=np.lastIndexOf('/'); return i>0?(np.slice(0,i)):''; }
+    document.getElementById('toggle').addEventListener('click', ()=>{ document.getElementById('sidebar').classList.toggle('hidden'); });
+    async function loadButtons(){
+      const res = await fetch(api + '/api/buttons', {credentials:'same-origin'});
+      if(res.status === 401){ location.href = '/login'; return; }
+      const data = await res.json();
+      const items = data.items || [];
+      const sidebarList = document.getElementById('sidebar-list');
+      const titleLeft = document.getElementById('title-left');
+      const titleRight = document.getElementById('title-right');
+      sidebarList.innerHTML = ''; titleLeft.innerHTML = ''; titleRight.innerHTML = '';
+      for(const it of items){
+        const name = it.Name || it.name; const url = it.Url || it.url; const type = it.Type || it.type;
+        if(type === 'left-sidebar'){ const a=document.createElement('a'); a.className='item'; a.textContent=name; a.href=url; sidebarList.appendChild(a); }
+        else if(type === 'title'){ const b=document.createElement('button'); b.className='btn'; b.textContent=name; b.onclick=()=>{ location.href=url; }; titleLeft.appendChild(b); }
+        else if(type === 'title-right'){ const b=document.createElement('button'); b.className='btn'; b.textContent=name; b.onclick=()=>{ location.href=url; }; titleRight.appendChild(b); }
+      }
+    }
+    async function load(){
+      const dir = getParam('dir');
+      document.getElementById('dirTitle').textContent = '目录：' + dir;
+      const form = new URLSearchParams(); form.set('path', dir); form.set('type', 'local');
+      const res = await fetch(api + '/api/local/list', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:form.toString(), credentials:'same-origin'});
+      if(res.status === 401){ location.href='/login'; return; }
+      const data = await res.json();
+      const items = (data.items || []);
+      const grid = document.getElementById('grid'); grid.innerHTML='';
+      const dirN = norm(dir).replace(/[\/\\]+$/,'');
+      for(const it of items){
+        const p = it.Path || it.path;
+        if(parentOf(p) !== dirN) continue;
+        const card = document.createElement('div'); card.className='card';
+        const name = (p.split('/').pop() || p);
+        if((it.Type||it.type)==='dir'){
+          const nm = document.createElement('div'); nm.textContent = '目录：' + name;
+          card.appendChild(nm);
+        } else if(isImage(p)){
+          const img = document.createElement('img'); img.src = api + '/api/local/file?path=' + encodeURIComponent(p); card.appendChild(img);
+        } else {
+          const nm = document.createElement('div'); nm.textContent = name;
+          const sz = document.createElement('div'); sz.textContent = '大小: ' + (it.Size||it.size);
+          card.appendChild(nm); card.appendChild(sz);
+        }
+        grid.appendChild(card);
+      }
+    }
+    loadButtons();
+    load();
+  </script>
+</body>
+</html>

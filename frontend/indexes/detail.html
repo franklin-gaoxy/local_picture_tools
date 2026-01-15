@@ -1,0 +1,298 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>索引详情</title>
+  <style>
+    body{background:#0d1117;color:#c9d1d9;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;margin:0}
+    .titlebar{display:flex;align-items:center;justify-content:space-between;background:#161b22;border-bottom:1px solid #30363d;padding:10px 16px;position:sticky;top:0}
+    .title-left{display:flex;gap:8px}
+    .title-left .btn{background:transparent;border:0;color:#c9d1d9;padding:6px 8px;border-radius:6px;cursor:pointer}
+    .title-right{display:flex;gap:8px;align-items:center}
+    .title-right .btn{background:transparent;border:1px solid #30363d;color:#c9d1d9;padding:6px 8px;border-radius:6px;cursor:pointer}
+    .title-right .setting{background:#21262d;border:1px solid #30363d}
+    .layout{display:flex}
+    .sidebar{width:220px;background:#161b22;border-right:1px solid #30363d;min-height:calc(100vh - 46px);padding:10px;transform:translateX(0);transition:transform .2s}
+    .sidebar.hidden{transform:translateX(-100%)}
+    .sidebar .item{display:block;color:#c9d1d9;text-decoration:none;padding:6px 8px;border-radius:6px}
+    .content{flex:1;padding:16px}
+    .toggle{margin-right:8px}
+    .cards{display:grid;grid-template-columns:repeat(2, minmax(0,1fr));gap:12px;margin-top:12px}
+    .card{background:#161b22;border:1px solid #30363d;border-radius:6px;padding:12px}
+    .card h2{font-size:16px;margin:0 0 8px}
+    .kv{margin:4px 0}
+    .kv span{color:#8b949e}
+    .files{margin-top:12px}
+    .file{display:flex;justify-content:space-between;border:1px solid #30363d;border-radius:6px;padding:8px;margin-bottom:6px;background:#0d1117}
+    .meta{font-size:12px;color:#8b949e}
+    .pager{display:flex;gap:8px;align-items:center;margin-top:8px}
+    .pager .btn{background:#21262d;border:1px solid #30363d;color:#c9d1d9;padding:6px 8px;border-radius:6px;cursor:pointer}
+    .searchbar{display:flex;gap:8px;align-items:center;margin-top:8px}
+    .searchbar input{flex:1;background:#0d1117;border:1px solid #30363d;color:#c9d1d9;padding:6px 8px;border-radius:6px}
+    .searchbar .btn{background:#21262d;border:1px solid #30363d;color:#c9d1d9;padding:6px 8px;border-radius:6px;cursor:pointer}
+    .filters{display:flex;gap:8px;flex-wrap:wrap;margin-top:8px}
+    .chip{display:flex;gap:6px;align-items:center;background:#0d1117;border:1px solid #30363d;border-radius:20px;padding:4px 10px;font-size:12px}
+    .chip .rm{cursor:pointer;color:#f85149}
+  </style>
+</head>
+<body>
+  <div class="titlebar">
+    <div class="title-left">
+      <button class="btn toggle" id="toggle">侧边栏</button>
+      <div id="title-left"></div>
+    </div>
+    <div class="title-right">
+      <div id="title-right"></div>
+      <button class="btn setting" onclick="location.href='/setting'">设置</button>
+    </div>
+  </div>
+  <div class="layout">
+    <div class="sidebar" id="sidebar">
+      <div id="sidebar-list"></div>
+    </div>
+    <div class="content">
+      <div class="cards">
+        <div class="card">
+          <h2>索引信息</h2>
+          <div class="kv"><span>显示名：</span><b id="display-name">-</b></div>
+          <div class="kv"><span>表名：</span><b id="table-name">-</b></div>
+          <div class="kv"><span>创建时间：</span><b id="created-at">-</b></div>
+          <div class="kv"><span>描述：</span><b id="description">-</b></div>
+          <div class="kv"><span>条目总数：</span><b id="total-count">-</b></div>
+        </div>
+        <div class="card" style="grid-column:1/-1">
+          <h2>索引文件</h2>
+          <div class="searchbar">
+            <input type="text" id="search-input" placeholder="输入搜索内容（按路径匹配）">
+            <button class="btn" id="do-search">搜索</button>
+            <button class="btn" id="add-filter">添加条件</button>
+          </div>
+          <div id="search-bars"></div>
+          <div class="filters" id="filters"></div>
+          <div id="files" class="files"></div>
+          <div class="pager">
+            <button class="btn" id="prev">上一页</button>
+            <button class="btn" id="next">下一页</button>
+            <span class="meta" id="page-meta"></span>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const api = window.location.origin;
+    const params = new URLSearchParams(window.location.search);
+    const table = params.get('table') || '';
+    let offset = 0;
+    let limit = 50;
+    let lastSearch = { q: '', items: [], total: 0, offset: 0, limit: 50 };
+    let filters = [];
+    function getStepQueries(){
+      const rows = Array.from(document.querySelectorAll('#search-bars .searchbar'));
+      return rows.map(r => (r.querySelector('input')?.value || '').trim()).filter(q => q !== '');
+    }
+    document.getElementById('toggle').addEventListener('click', ()=>{
+      document.getElementById('sidebar').classList.toggle('hidden');
+    });
+    async function loadButtons(){
+      const res = await fetch(api + '/api/buttons', {credentials:'same-origin'});
+      if(res.redirected || res.status === 401){ window.location.href = '/login'; return; }
+      const data = await res.json();
+      const items = (data && data.items) || [];
+      const sidebarList = document.getElementById('sidebar-list');
+      const titleLeft = document.getElementById('title-left');
+      const titleRight = document.getElementById('title-right');
+      sidebarList.innerHTML = '';
+      titleLeft.innerHTML = '';
+      titleRight.innerHTML = '';
+      for(const it of items){
+        const name = it.Name || it.name;
+        const url = it.Url || it.url;
+        const type = it.Type || it.type;
+        if(type === 'left-sidebar'){
+          const a = document.createElement('a');
+          a.className = 'item';
+          a.textContent = name;
+          a.href = url;
+          sidebarList.appendChild(a);
+        }else if(type === 'title'){
+          const b = document.createElement('button');
+          b.className = 'btn';
+          b.textContent = name;
+          b.onclick = ()=>{ location.href = url; };
+          titleLeft.appendChild(b);
+        }else if(type === 'title-right'){
+          const b = document.createElement('button');
+          b.className = 'btn';
+          b.textContent = name;
+          b.onclick = ()=>{ location.href = url; };
+          titleRight.appendChild(b);
+        }
+      }
+    }
+    async function loadInfo(){
+      if(!table){ return; }
+      const res = await fetch(api + '/api/indexes/info?table=' + encodeURIComponent(table), {credentials:'same-origin'});
+      if(res.status === 401){ window.location.href = '/login'; return; }
+      const d = await res.json();
+      const b = d.binding || {};
+      document.getElementById('display-name').textContent = b.DisplayName || b.display_name || '-';
+      document.getElementById('table-name').textContent = b.TableName || b.table_name || table;
+      document.getElementById('created-at').textContent = b.CreatedAt || b.created_at || '-';
+      document.getElementById('description').textContent = b.Description || b.description || '-';
+      document.getElementById('total-count').textContent = d.count != null ? d.count : '-';
+    }
+    async function loadFiles(){
+      if(!table){ return; }
+      const res = await fetch(api + '/api/indexes/files?table=' + encodeURIComponent(table) + '&offset=' + offset + '&limit=' + limit, {credentials:'same-origin'});
+      if(res.status === 401){ window.location.href = '/login'; return; }
+      const d = await res.json();
+      const list = d.items || [];
+      const total = d.total || 0;
+      lastSearch = { q: '', items: list, total: total, offset: offset, limit: limit };
+      renderFiles(applyFilters(list), total);
+    }
+    function renderFiles(list, total){
+      const box = document.getElementById('files');
+      box.innerHTML = '';
+      for(const e of list){
+        const div = document.createElement('div');
+        div.className = 'file';
+        const left = document.createElement('div');
+        const ext = (e.Path.split('.').pop()||'').toLowerCase();
+        left.innerHTML = '<b>' + e.Path + '</b><div class="meta">类型: ' + e.Type + ' · 扩展: ' + ext + ' · 大小: ' + e.Size + ' · 修改时间: ' + e.Mtime + '</div>';
+        const right = document.createElement('div');
+        const a = document.createElement('a');
+        a.className = 'btn';
+        a.textContent = '打开';
+        if(e.Type === 'file'){
+          a.href = '/api/local/file?path=' + encodeURIComponent(e.Path);
+          a.target = '_blank';
+        }else{
+          a.href = 'javascript:void(0)';
+          a.style.opacity = '0.6';
+          a.title = '目录不可直接打开';
+        }
+        right.appendChild(a);
+        div.appendChild(left);
+        div.appendChild(right);
+        box.appendChild(div);
+      }
+      const pageMeta = document.getElementById('page-meta');
+      const start = Math.min(offset + 1, total);
+      const end = Math.min(offset + limit, total);
+      pageMeta.textContent = '显示 ' + start + ' - ' + end + ' / 共 ' + total + (lastSearch.q ? (' · 搜索: ' + lastSearch.q) : '');
+      document.getElementById('prev').disabled = offset <= 0;
+      document.getElementById('next').disabled = offset + limit >= total;
+    }
+    function applyFilters(list){
+      let result = list.slice();
+      for(const f of filters){
+        if(f.type === 'path-contains'){
+          result = result.filter(e => (e.Path||'').toLowerCase().includes(f.value.toLowerCase()));
+        }else if(f.type === 'type'){
+          result = result.filter(e => (e.Type||'') === f.value);
+        }else if(f.type === 'ext'){
+          result = result.filter(e => (e.Path||'').toLowerCase().endsWith('.' + f.value.toLowerCase()));
+        }else if(f.type === 'min-size'){
+          result = result.filter(e => (e.Size||0) >= f.value);
+        }else if(f.type === 'max-size'){
+          result = result.filter(e => (e.Size||0) <= f.value);
+        }else if(f.type === 'min-mtime'){
+          result = result.filter(e => (e.Mtime||0) >= f.value);
+        }else if(f.type === 'max-mtime'){
+          result = result.filter(e => (e.Mtime||0) <= f.value);
+        }
+      }
+      return result;
+    }
+    function renderFilters(){
+      const box = document.getElementById('filters');
+      box.innerHTML = '';
+      for(let i=0;i<filters.length;i++){
+        const f = filters[i];
+        const chip = document.createElement('div');
+        chip.className = 'chip';
+        chip.innerHTML = '<span>' + f.label + '</span><span class="rm" data-i="'+i+'">移除</span>';
+        box.appendChild(chip);
+      }
+      box.querySelectorAll('.rm').forEach(el=>{
+        el.addEventListener('click', (e)=>{
+          const idx = parseInt(e.target.getAttribute('data-i'), 10);
+          filters.splice(idx, 1);
+          renderFilters();
+          renderFiles(applyFilters(lastSearch.items), lastSearch.total);
+        });
+      });
+    }
+    async function doSearch(){
+      const q = document.getElementById('search-input').value || '';
+      offset = 0;
+      const res = await fetch(api + '/api/indexes/search?table=' + encodeURIComponent(table) + '&q=' + encodeURIComponent(q) + '&offset=' + offset + '&limit=' + limit, {credentials:'same-origin'});
+      if(res.status === 401){ window.location.href = '/login'; return; }
+      const d = await res.json();
+      lastSearch = { q: q, items: d.items || [], total: d.total || 0, offset: d.offset || 0, limit: d.limit || limit };
+      filters = [];
+      renderFilters();
+      document.getElementById('search-bars').innerHTML = '';
+      renderFiles(applyFilters(lastSearch.items), lastSearch.total);
+    }
+    function addStep(afterRow){
+      const container = document.getElementById('search-bars');
+      const row = document.createElement('div');
+      row.className = 'searchbar';
+      const input = document.createElement('input');
+      input.type = 'text';
+      input.placeholder = '再次输入搜索内容（在上次结果内匹配）';
+      const btn = document.createElement('button');
+      btn.className = 'btn';
+      btn.textContent = '搜索';
+      btn.addEventListener('click', ()=>{
+        let list = applyFilters(lastSearch.items);
+        const queries = getStepQueries();
+        for(const q of queries){
+          if(!q){ continue; }
+          list = list.filter(e => (e.Path||'').toLowerCase().includes(q.toLowerCase()));
+        }
+        renderFiles(list, list.length);
+      });
+      const addBtn = document.createElement('button');
+      addBtn.className = 'btn';
+      addBtn.textContent = '添加条件';
+      addBtn.addEventListener('click', ()=>{
+        addStep(row);
+      });
+      row.appendChild(input);
+      row.appendChild(btn);
+      row.appendChild(addBtn);
+      if(afterRow){
+        afterRow.insertAdjacentElement('afterend', row);
+      }else{
+        container.appendChild(row);
+      }
+    }
+    document.getElementById('prev').addEventListener('click', ()=>{
+      offset = Math.max(0, offset - limit);
+      if(lastSearch.q){
+        doSearch();
+      }else{
+        loadFiles();
+      }
+    });
+    document.getElementById('next').addEventListener('click', ()=>{
+      offset = offset + limit;
+      if(lastSearch.q){
+        doSearch();
+      }else{
+        loadFiles();
+      }
+    });
+    document.getElementById('do-search').addEventListener('click', doSearch);
+    document.getElementById('add-filter').addEventListener('click', ()=>addStep());
+    loadButtons();
+    loadInfo();
+    loadFiles();
+  </script>
+</body>
+</html>

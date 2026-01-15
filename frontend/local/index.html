@@ -1,0 +1,433 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>本地展示</title>
+  <style>
+    body{background:#0d1117;color:#c9d1d9;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;margin:0}
+    .titlebar{display:flex;align-items:center;justify-content:space-between;background:#161b22;border-bottom:1px solid #30363d;padding:10px 16px;position:sticky;top:0}
+    .title-left{display:flex;gap:8px}
+    .title-left .btn{background:transparent;border:0;color:#c9d1d9;padding:6px 8px;border-radius:6px;cursor:pointer}
+    .title-right{display:flex;gap:8px;align-items:center}
+    .title-right .btn{background:transparent;border:1px solid #30363d;color:#c9d1d9;padding:6px 8px;border-radius:6px;cursor:pointer}
+    .title-right .setting{background:#21262d;border:1px solid #30363d}
+    .layout{display:flex}
+    .sidebar{width:220px;background:#161b22;border-right:1px solid #30363d;min-height:calc(100vh - 46px);padding:10px;transform:translateX(0);transition:transform .2s}
+    .sidebar.hidden{transform:translateX(-100%)}
+    .sidebar .item{display:block;color:#c9d1d9;text-decoration:none;padding:6px 8px;border-radius:6px}
+    .content{flex:1;padding:16px}
+    .toolbar{display:flex;gap:8px;align-items:center;background:#161b22;border:1px solid #30363d;border-radius:6px;padding:10px;margin-bottom:12px}
+    input,select{padding:6px 8px;border:1px solid #30363d;border-radius:6px;background:#0d1117;color:#c9d1d9}
+    button{padding:6px 10px;border-radius:6px;border:1px solid #30363d;background:#21262d;color:#c9d1d9;cursor:pointer}
+    .searchbox{margin-left:auto;display:flex;gap:8px;align-items:center;border-left:1px solid #30363d;padding-left:12px}
+    table{width:100%;border-collapse:collapse}
+    th,td{border-bottom:1px solid #30363d;padding:6px 8px;text-align:left}
+    .toggle{background:transparent;border:0;color:#c9d1d9}
+    .show-btn{display:inline-flex;align-items:center;justify-content:center;padding:4px 14px;height:24px;line-height:24px;white-space:nowrap}
+    .row-depth-0{}
+    .row-depth-1{background:#141a22}
+    .row-depth-2{background:#17202a}
+    .row-depth-3{background:#1a2430}
+    .modal-mask{position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:1000}
+    .modal{width:520px;max-height:80vh;overflow:auto;background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px}
+    .modal h3{margin:0 0 12px;font-size:16px}
+    .modal .row{display:flex;gap:8px;margin-bottom:10px}
+    .modal label{width:90px;color:#8b949e}
+    .modal input,.modal textarea{flex:1;padding:6px 8px;border:1px solid #30363d;border-radius:6px;background:#0d1117;color:#c9d1d9}
+    .modal textarea{min-height:80px}
+    .chips{display:flex;gap:6px;flex-wrap:wrap;margin-top:6px}
+    .chip{background:#21262d;border:1px solid #30363d;border-radius:999px;padding:2px 8px;display:inline-flex;align-items:center;gap:6px}
+    .chip .close{cursor:pointer;background:#30363d;color:#c9d1d9;border-radius:999px;padding:0 6px;line-height:18px}
+    .tagbox{display:flex;gap:8px;align-items:center}
+    .dropdown{position:relative}
+    .dropdown-list{position:absolute;top:100%;left:0;right:0;background:#0d1117;border:1px solid #30363d;border-radius:6px;display:none;max-height:180px;overflow:auto;z-index:1001}
+    .dropdown-list div{padding:6px 8px;cursor:pointer}
+    .dropdown-list div:hover{background:#161b22}
+    .modal .actions{display:flex;justify-content:flex-end;gap:8px;margin-top:12px}
+    .tag-all{border:1px solid #30363d;border-radius:6px;padding:8px;margin-top:10px;margin-bottom:12px}
+    .tag-all .list{display:flex;gap:6px;flex-wrap:wrap;max-height:120px;overflow:hidden}
+    .tag-all.expanded .list{max-height:400px;overflow:auto}
+    .tag-all .controls{display:flex;justify-content:flex-end;margin-top:8px}
+    .op-wrap{display:flex;gap:8px;align-items:center}
+  </style>
+</head>
+<body>
+  <div class="titlebar">
+    <div class="title-left">
+      <button class="btn toggle" id="toggle">侧边栏</button>
+      <div id="title-left"></div>
+    </div>
+    <div class="title-right">
+      <div id="title-right"></div>
+      <button class="btn setting" onclick="location.href='/setting'">设置</button>
+    </div>
+  </div>
+  <div class="layout">
+    <div class="sidebar" id="sidebar">
+      <div id="sidebar-list"></div>
+    </div>
+    <div class="content">
+      <div class="toolbar">
+        <span>地址</span>
+        <input id="path" placeholder="/Users/xxx/yourdir">
+        <span>类型</span>
+        <select id="type">
+          <option value="local">本地</option>
+          <option value="network" disabled>网络</option>
+        </select>
+        <button id="read">读取内容</button>
+        <button id="index">生成索引</button>
+        <div class="searchbox">
+          <input id="q" placeholder="搜索关键字">
+          <button id="search">查询</button>
+        </div>
+      </div>
+      <table>
+        <thead><tr><th>名称</th><th>类型</th><th>路径</th><th>大小</th><th>修改时间</th><th>操作</th></tr></thead>
+        <tbody id="tbody"></tbody>
+      </table>
+      <div id="gallery" style="margin-top:12px"></div>
+      <div class="modal-mask" id="favMask">
+        <div class="modal">
+          <h3>收藏目录</h3>
+          <div class="row"><label>收藏名</label><input id="favName"></div>
+          <div class="row"><label>原始名称</label><input id="favOriginal" readonly></div>
+          <div class="row tagbox">
+            <label>标签</label>
+            <div class="dropdown" style="flex:1">
+              <input id="tagInput" placeholder="输入以搜索或添加">
+              <div class="dropdown-list" id="tagSuggest"></div>
+            </div>
+            <button id="tagAdd">添加</button>
+          </div>
+          <div class="chips" id="tagChips"></div>
+          <div class="tag-all" id="tagAllBox">
+            <div class="list" id="tagAllList"></div>
+            <div class="controls"><button id="tagToggle">展开</button></div>
+          </div>
+          <div class="row"><label>描述</label><textarea id="favDesc"></textarea></div>
+          <div class="actions">
+            <button id="favCancel">取消</button>
+            <button id="favSave">保存</button>
+          </div>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const api = window.location.origin;
+    document.getElementById('toggle').addEventListener('click', ()=>{
+      document.getElementById('sidebar').classList.toggle('hidden');
+    });
+    async function loadButtons(){
+      const res = await fetch(api + '/api/buttons', {credentials:'same-origin'});
+      if(res.status === 401){ location.href = '/login'; return; }
+      const data = await res.json();
+      const items = data.items || [];
+      const sidebarList = document.getElementById('sidebar-list');
+      const titleLeft = document.getElementById('title-left');
+      const titleRight = document.getElementById('title-right');
+      sidebarList.innerHTML = '';
+      titleLeft.innerHTML = '';
+      titleRight.innerHTML = '';
+      for(const it of items){
+        const name = it.Name || it.name;
+        const url = it.Url || it.url;
+        const type = it.Type || it.type;
+        if(type === 'left-sidebar'){
+          const a = document.createElement('a');
+          a.className = 'item';
+          a.textContent = name;
+          a.href = url;
+          sidebarList.appendChild(a);
+        }else if(type === 'title'){
+          const b = document.createElement('button');
+          b.textContent = name;
+          b.className = 'btn';
+          b.onclick = ()=>{ location.href = url; };
+          titleLeft.appendChild(b);
+        }else if(type === 'title-right'){
+          const b = document.createElement('button');
+          b.textContent = name;
+          b.className = 'btn';
+          b.onclick = ()=>{ location.href = url; };
+          titleRight.appendChild(b);
+        }
+      }
+    }
+    let currentItems = [];
+    let rootPath = '';
+    const expanded = new Set();
+    function norm(p){ return (p||'').replace(/\\/g,'/'); }
+    function nameOf(p){ const s=norm(p).split('/'); return s[s.length-1]||p; }
+    function isImage(p){ return /\.(png|jpg|jpeg|gif|webp|bmp)$/i.test((p||'')); }
+    function parentOf(p){ const np=norm(p); const i=np.lastIndexOf('/'); return i>0?(np.slice(0,i)):''; }
+    function childrenOf(parent){
+      const nparent = norm(parent);
+      return currentItems.filter(it => (it.Path||it.path) && parentOf(it.Path||it.path) === nparent);
+    }
+    function renderTree(){
+      const tbody = document.getElementById('tbody');
+      tbody.innerHTML = '';
+      // immediate children of root
+      const roots = currentItems.filter(it => parentOf(it.Path||it.path) === rootPath);
+      const stack = roots.map(it => ({item:it, depth:0}));
+      while(stack.length){
+        const {item, depth} = stack.shift();
+        const tr = document.createElement('tr');
+      const p = item.Path||item.path;
+      const nameTd = document.createElement('td');
+      const toggleBtn = document.createElement('button');
+        toggleBtn.className='toggle';
+        if((item.Type||item.type)==='dir'){
+          toggleBtn.textContent = expanded.has(p)?'▾':'▸';
+          toggleBtn.addEventListener('click', ()=>{
+            if(expanded.has(p)) expanded.delete(p); else expanded.add(p);
+            renderTree();
+          });
+        }else{
+          toggleBtn.textContent = '';
+        }
+        nameTd.appendChild(toggleBtn);
+        const nameSpan = document.createElement('span');
+        nameSpan.textContent = nameOf(p);
+        nameSpan.style.marginLeft = '6px';
+        nameSpan.style.paddingLeft = (depth*12)+'px';
+        nameTd.appendChild(nameSpan);
+        const typeTd = document.createElement('td'); typeTd.textContent = item.Type||item.type;
+        const pathTd = document.createElement('td'); pathTd.textContent = p;
+        const sizeTd = document.createElement('td'); sizeTd.textContent = (item.Size||item.size);
+        const mtTd = document.createElement('td'); 
+        const t = (item.Mtime||item.mtime)*1000; mtTd.textContent = t?new Date(t).toLocaleString():'-';
+        const opTd = document.createElement('td');
+        if((item.Type||item.type)==='dir'){
+          const wrap = document.createElement('div');
+          wrap.className = 'op-wrap';
+          const showBtn = document.createElement('button');
+          showBtn.textContent = '展示';
+          showBtn.className = 'show-btn';
+          showBtn.addEventListener('click', ()=>window.open('/local/gallery.html?dir='+encodeURIComponent(p), '_blank'));
+          wrap.appendChild(showBtn);
+          const favBtn = document.createElement('button');
+          favBtn.textContent = '收藏';
+          favBtn.className = 'show-btn';
+          favBtn.addEventListener('click', ()=>openFavoriteModal(p, nameOf(p)));
+          wrap.appendChild(favBtn);
+          opTd.appendChild(wrap);
+        }else{
+          const open = document.createElement('a');
+          open.textContent = '打开';
+          open.href = api + '/api/local/file?path=' + encodeURIComponent(p);
+          open.target = '_blank';
+          opTd.appendChild(open);
+        }
+        tr.appendChild(nameTd); tr.appendChild(typeTd); tr.appendChild(pathTd); tr.appendChild(sizeTd); tr.appendChild(mtTd); tr.appendChild(opTd);
+        tr.className = 'row-depth-' + depth;
+        tbody.appendChild(tr);
+        if((item.Type||item.type)==='dir' && expanded.has(p)){
+          const children = childrenOf(p);
+          children.forEach(ch => stack.unshift({item:ch, depth:depth+1}));
+        }
+      }
+    }
+    function showGallery(dir){
+      const gallery = document.getElementById('gallery');
+      gallery.innerHTML = '';
+      const dirN = norm(dir).replace(/[\/\\]+$/,'');
+      const files = currentItems.filter(it => (it.Type||it.type) === 'file' && norm(it.Path||it.path).startsWith(dirN+'/'));
+      const grid = document.createElement('div');
+      grid.style.display='grid';
+      grid.style.gridTemplateColumns='repeat(3, minmax(0,1fr))';
+      grid.style.gap='8px';
+      files.forEach(f=>{
+        const card = document.createElement('div');
+        card.style.border='1px solid #30363d';
+        card.style.borderRadius='6px';
+        card.style.padding='6px';
+        if(isImage(f.Path||f.path)){
+          const img = document.createElement('img');
+          img.src = api + '/api/local/file?path=' + encodeURIComponent(f.Path||f.path);
+          img.style.width='100%';
+          img.style.height='auto';
+          card.appendChild(img);
+        }else{
+          const nm = document.createElement('div'); nm.textContent = nameOf(f.Path||f.path);
+          const sz = document.createElement('div'); sz.textContent = '大小: ' + (f.Size||f.size);
+          card.appendChild(nm); card.appendChild(sz);
+        }
+        grid.appendChild(card);
+      });
+      gallery.appendChild(grid);
+    }
+    function openFavoriteModal(dirPath, originalName){
+      document.getElementById('favMask').style.display='flex';
+      document.getElementById('favOriginal').value = originalName;
+      document.getElementById('favName').value = originalName;
+      document.getElementById('favDesc').value = '';
+      document.getElementById('favMask').dataset.dir = dirPath;
+      document.getElementById('tagChips').innerHTML = '';
+      document.getElementById('tagInput').value = '';
+      document.getElementById('tagSuggest').style.display='none';
+      loadAllTags();
+      const box = document.getElementById('tagAllBox');
+      box.classList.remove('expanded');
+      document.getElementById('tagToggle').textContent = '展开';
+    }
+    document.getElementById('favCancel').addEventListener('click', ()=>{
+      document.getElementById('favMask').style.display='none';
+    });
+    function addChip(name){
+      if(!name) return;
+      const chips = Array.from(document.querySelectorAll('#tagChips .chip')).map(c=>c.dataset.name);
+      if(chips.includes(name)) return;
+      const chip = document.createElement('span');
+      chip.className='chip';
+      chip.dataset.name = name;
+      const label = document.createElement('span');
+      label.textContent = name;
+      const close = document.createElement('span');
+      close.className = 'close';
+      close.textContent = '×';
+      close.addEventListener('click', (e)=>{ e.stopPropagation(); chip.remove(); });
+      chip.appendChild(label);
+      chip.appendChild(close);
+      document.getElementById('tagChips').appendChild(chip);
+    }
+    document.getElementById('tagInput').addEventListener('input', async ()=>{
+      const q = document.getElementById('tagInput').value.trim();
+      const listBox = document.getElementById('tagSuggest');
+      if(!q){ listBox.style.display='none'; listBox.innerHTML=''; return; }
+      const res = await fetch(api + '/api/tags/search?q=' + encodeURIComponent(q), {credentials:'same-origin'});
+      if(res.status===401){ location.href='/login'; return; }
+      const d = await res.json();
+      const items = d.items || [];
+      listBox.innerHTML = '';
+      items.forEach(it=>{
+        const div = document.createElement('div');
+        div.textContent = it.Name || it.name;
+        div.addEventListener('click', ()=>{
+          addChip(div.textContent);
+          listBox.style.display='none';
+          document.getElementById('tagInput').value='';
+        });
+        listBox.appendChild(div);
+      });
+      listBox.style.display = items.length ? 'block' : 'none';
+    });
+    document.getElementById('tagAdd').addEventListener('click', async ()=>{
+      const name = document.getElementById('tagInput').value.trim();
+      if(!name) return;
+      const form = new URLSearchParams(); form.set('name', name);
+      const res = await fetch(api + '/api/tags/add', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:form.toString(), credentials:'same-origin'});
+      if(res.status===401){ location.href='/login'; return; }
+      const d = await res.json();
+      if(res.ok && d && d.ok){ addChip(name); document.getElementById('tagInput').value=''; document.getElementById('tagSuggest').style.display='none'; }
+    });
+    document.getElementById('favSave').addEventListener('click', async ()=>{
+      const dir = document.getElementById('favMask').dataset.dir;
+      const original = document.getElementById('favOriginal').value.trim();
+      const favorite = document.getElementById('favName').value.trim();
+      const desc = document.getElementById('favDesc').value.trim();
+      const tags = Array.from(document.querySelectorAll('#tagChips .chip')).map(c=>c.dataset.name).join(',');
+      if(!favorite) return;
+      const form = new URLSearchParams();
+      form.set('path', dir); form.set('original', original); form.set('favorite', favorite); form.set('desc', desc); form.set('tags', tags);
+      const res = await fetch(api + '/api/favorite', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:form.toString(), credentials:'same-origin'});
+      if(res.status===401){ location.href='/login'; return; }
+      const d = await res.json();
+      if(res.ok && d && d.ok){ document.getElementById('favMask').style.display='none'; }
+    });
+    async function loadAllTags(){
+      const res = await fetch(api + '/api/tags/all', {credentials:'same-origin'});
+      if(res.status===401){ location.href='/login'; return; }
+      const d = await res.json();
+      const items = d.items || [];
+      const list = document.getElementById('tagAllList');
+      list.innerHTML = '';
+      if(!items.length){
+        const empty = document.createElement('div');
+        empty.style.color = '#8b949e';
+        empty.textContent = '暂无标签，右侧可通过添加创建新标签';
+        list.appendChild(empty);
+      } else {
+        items.forEach(it=>{
+          const chip = document.createElement('span');
+          chip.className='chip';
+          chip.textContent = it.Name || it.name;
+          chip.addEventListener('click', ()=>addChip(chip.textContent));
+          list.appendChild(chip);
+        });
+      }
+    }
+    document.getElementById('tagToggle').addEventListener('click', ()=>{
+      const box = document.getElementById('tagAllBox');
+      const btn = document.getElementById('tagToggle');
+      if(box.classList.contains('expanded')){
+        box.classList.remove('expanded');
+        btn.textContent = '展开';
+      }else{
+        box.classList.add('expanded');
+        btn.textContent = '收起';
+      }
+    });
+    document.getElementById('read').addEventListener('click', async ()=>{
+      const path = document.getElementById('path').value.trim();
+      const type = document.getElementById('type').value;
+      if(!path) return;
+      const form = new URLSearchParams();
+      form.set('path', path); form.set('type', type);
+      const res = await fetch(api + '/api/local/list', {
+        method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:form.toString(), credentials:'same-origin'
+      });
+      if(res.status === 401){ location.href='/login'; return; }
+      const data = await res.json();
+      currentItems = data.items || [];
+      rootPath = norm(path).replace(/[\/\\]+$/,'');
+      renderTree();
+    });
+    document.getElementById('search').addEventListener('click', ()=>{
+      const q = document.getElementById('q').value.trim().toLowerCase();
+      if(!q){ renderTree(); return; }
+      const tbody = document.getElementById('tbody');
+      tbody.innerHTML = '';
+      const filtered = currentItems.filter(it => nameOf(it.Path||it.path).toLowerCase().includes(q));
+      filtered.forEach(it=>{
+        const tr = document.createElement('tr');
+        const p = it.Path||it.path;
+        const nameTd = document.createElement('td'); nameTd.textContent = nameOf(p);
+        const typeTd = document.createElement('td'); typeTd.textContent = it.Type||it.type;
+        const pathTd = document.createElement('td'); pathTd.textContent = p;
+        const sizeTd = document.createElement('td'); sizeTd.textContent = (it.Size||it.size);
+        const mtTd = document.createElement('td'); const t=(it.Mtime||it.mtime)*1000; mtTd.textContent = t?new Date(t).toLocaleString():'-';
+        const opTd = document.createElement('td');
+        if((it.Type||it.type)==='dir'){
+          const showBtn = document.createElement('button'); showBtn.textContent='展示'; showBtn.addEventListener('click', ()=>showGallery(p));
+          opTd.appendChild(showBtn);
+        }else{
+          const open = document.createElement('a'); open.textContent='打开'; open.href=api+'/api/local/file?path='+encodeURIComponent(p); open.target='_blank'; opTd.appendChild(open);
+        }
+        tr.appendChild(nameTd); tr.appendChild(typeTd); tr.appendChild(pathTd); tr.appendChild(sizeTd); tr.appendChild(mtTd); tr.appendChild(opTd);
+        tbody.appendChild(tr);
+      });
+    });
+    document.getElementById('index').addEventListener('click', async ()=>{
+      const path = document.getElementById('path').value.trim();
+      if(!path){ return; }
+      const table = prompt('输入表名称（仅英文、数字、下划线）：');
+      if(!table){ return; }
+      const display = prompt('输入展示名称：') || table;
+      const desc = prompt('输入描述信息：') || '';
+      const form = new URLSearchParams();
+      form.set('table', table); form.set('display', display); form.set('desc', desc); form.set('path', path);
+      const res = await fetch(api + '/api/local/index', {
+        method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:form.toString(), credentials:'same-origin'
+      });
+      if(res.status === 401){ location.href='/login'; return; }
+      const d = await res.json();
+      if(res.ok && d && d.ok){ alert('索引已生成：' + d.table + '，共 ' + d.count + ' 条'); }
+    });
+    loadButtons();
+  </script>
+</body>
+</html>

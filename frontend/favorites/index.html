@@ -1,0 +1,379 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>收藏列表</title>
+  <style>
+    body{background:#0d1117;color:#c9d1d9;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;margin:0}
+    .titlebar{display:flex;align-items:center;justify-content:space-between;background:#161b22;border-bottom:1px solid #30363d;padding:10px 16px;position:sticky;top:0}
+    .title-left{display:flex;gap:8px}
+    .title-left .btn{background:transparent;border:0;color:#c9d1d9;padding:6px 8px;border-radius:6px;cursor:pointer}
+    .title-right{display:flex;gap:8px;align-items:center}
+    .title-right .btn{background:transparent;border:1px solid #30363d;color:#c9d1d9;padding:6px 8px;border-radius:6px;cursor:pointer}
+    .title-right .setting{background:#21262d;border:1px solid #30363d}
+    .layout{display:flex}
+    .sidebar{width:220px;background:#161b22;border-right:1px solid #30363d;min-height:calc(100vh - 46px);padding:10px}
+    .sidebar .item{display:block;color:#c9d1d9;text-decoration:none;padding:6px 8px;border-radius:6px}
+    .content{flex:1;padding:16px}
+    .search-row{display:flex;gap:8px;align-items:center;margin-bottom:8px}
+    input{padding:6px 8px;border:1px solid #30363d;border-radius:6px;background:#0d1117;color:#c9d1d9}
+    button{padding:6px 10px;border-radius:6px;border:1px solid #30363d;background:#21262d;color:#c9d1d9;cursor:pointer}
+    .tag-filter{display:flex;gap:8px;align-items:center;border:1px solid #30363d;border-radius:6px;padding:10px;margin:10px 0}
+    .tag-list{padding:4px 0;margin-top:6px;display:flex;gap:6px;flex-wrap:wrap}
+    .chip{background:#21262d;border:1px solid #30363d;border-radius:999px;padding:2px 8px;display:inline-flex;gap:6px}
+    .pager{display:flex;gap:8px;align-items:center;margin-top:12px}
+    .fav-list{margin-top:10px}
+    .fav-item{padding:10px 8px;border-bottom:1px solid #30363d}
+    .fav-line1{display:grid;grid-template-columns:minmax(120px,20%) minmax(220px,35%) minmax(200px,1fr) minmax(120px,160px);gap:10px;align-items:center}
+    .fav-line1 .name{font-weight:600}
+    .fav-line1 .path{color:#8b949e}
+    .fav-line1 .desc{flex:1}
+    .fav-line1 .time{color:#8b949e}
+    .fav-line2{display:flex;align-items:center;justify-content:space-between;margin-top:6px}
+    .fav-actions{display:flex;gap:8px}
+    .fav-headers{display:grid;grid-template-columns:minmax(120px,20%) minmax(220px,35%) minmax(200px,1fr) minmax(120px,160px);gap:10px;align-items:center;font-size:12px;color:#8b949e;padding:6px 8px;border-bottom:1px solid #30363d;margin:8px 0}
+    .fav-headers .name{font-weight:600}
+    .fav-headers .desc{flex:1}
+  </style>
+</head>
+<body>
+  <div class="titlebar">
+    <div class="title-left">
+      <button class="btn" onclick="location.href='/'">首页</button>
+    </div>
+    <div class="title-right">
+      <button class="btn setting" onclick="location.href='/setting'">设置</button>
+    </div>
+  </div>
+  <div class="layout">
+    <div class="sidebar" id="sidebar">
+      <div id="sidebar-list"></div>
+    </div>
+    <div class="content">
+      <div style="display:flex;justify-content:flex-end;margin-bottom:10px">
+        <button id="addWebFav">添加在线网址</button>
+      </div>
+      <div id="searchContainer"></div>
+      <div class="tag-filter">
+        <input id="tagInput" placeholder="输入标签">
+        <button id="tagApply">标签筛选</button>
+      </div>
+      <div class="tag-list" id="allTags"></div>
+      <div class="fav-headers"><div class="name">名称</div><div class="path">路径</div><div class="desc">描述</div><div class="time">时间</div></div>
+      <div class="fav-list" id="favList"></div>
+      <div class="pager">
+        <button id="prev">上一页</button>
+        <span id="pageInfo"></span>
+        <button id="next">下一页</button>
+        <span>每页</span>
+        <input id="pageSize" type="number" value="20" style="width:64px">
+      </div>
+    </div>
+  </div>
+  <div class="modal-mask" id="webFavMask" style="position:fixed;left:0;top:0;right:0;bottom:0;background:rgba(0,0,0,.5);display:none;align-items:center;justify-content:center;z-index:1000">
+    <div class="modal" style="width:520px;max-height:80vh;overflow:auto;background:#161b22;border:1px solid #30363d;border-radius:8px;padding:16px">
+      <h3 style="margin:0 0 12px;font-size:16px">添加在线网址</h3>
+      <div class="row" style="display:flex;gap:8px;margin-bottom:10px"><label style="width:90px;color:#8b949e">名称</label><input id="webFavName" style="flex:1;padding:6px 8px;border:1px solid #30363d;border-radius:6px;background:#0d1117;color:#c9d1d9"></div>
+      <div class="row" style="display:flex;gap:8px;margin-bottom:10px"><label style="width:90px;color:#8b949e">路径</label><input id="webFavPath" placeholder="https://example.com" style="flex:1;padding:6px 8px;border:1px solid #30363d;border-radius:6px;background:#0d1117;color:#c9d1d9"></div>
+      <div class="row" style="display:flex;gap:8px;margin-bottom:10px;align-items:center">
+        <label style="width:90px;color:#8b949e">标签</label>
+        <div class="dropdown" style="flex:1;position:relative">
+          <input id="webTagInput" placeholder="输入以搜索或添加" style="width:100%;padding:6px 8px;border:1px solid #30363d;border-radius:6px;background:#0d1117;color:#c9d1d9">
+          <div class="dropdown-list" id="webTagSuggest" style="position:absolute;top:100%;left:0;right:0;background:#0d1117;border:1px solid #30363d;border-radius:6px;display:none;max-height:180px;overflow:auto;z-index:1001"></div>
+        </div>
+        <button id="webTagAdd">添加</button>
+      </div>
+      <div class="chips" id="webTagChips" style="display:flex;gap:6px;flex-wrap:wrap;margin-top:6px"></div>
+      <div class="tag-all" id="webTagAllBox" style="border:1px solid #30363d;border-radius:6px;padding:8px;margin-top:10px;margin-bottom:12px">
+        <div class="list" id="webTagAllList" style="display:flex;gap:6px;flex-wrap:wrap;max-height:120px;overflow:hidden"></div>
+        <div class="controls" style="display:flex;justify-content:flex-end;margin-top:8px"><button id="webTagToggle">展开</button></div>
+      </div>
+      <div class="row" style="display:flex;gap:8px;margin-bottom:10px"><label style="width:90px;color:#8b949e">描述</label><textarea id="webFavDesc" style="flex:1;padding:6px 8px;border:1px solid #30363d;border-radius:6px;background:#0d1117;color:#c9d1d9;min-height:80px"></textarea></div>
+      <div class="actions" style="display:flex;justify-content:flex-end;gap:8px;margin-top:12px">
+        <button id="webFavCancel">取消</button>
+        <button id="webFavSave">保存</button>
+      </div>
+    </div>
+  </div>
+  <script>
+    const api = window.location.origin;
+    let page = 1;
+    let pageSize = 20;
+    let serverItems = [];
+    let conditions = [];
+    let tagFilter = [];
+    function addSearchRow(initValue=''){
+      const row = document.createElement('div');
+      row.className='search-row';
+      const input = document.createElement('input');
+      input.placeholder='输入关键字';
+      input.value = initValue;
+      const searchBtn = document.createElement('button');
+      searchBtn.textContent='搜索';
+      searchBtn.addEventListener('click', ()=>{
+        page = 1;
+        loadServer(input.value.trim(), tagFilter);
+      });
+      const addBtn = document.createElement('button');
+      addBtn.textContent='添加条件';
+      addBtn.addEventListener('click', ()=>{
+        conditions.push(input.value.trim());
+        renderClientFilter();
+        addSearchRow('');
+      });
+      row.appendChild(input); row.appendChild(searchBtn); row.appendChild(addBtn);
+      document.getElementById('searchContainer').appendChild(row);
+    }
+    function renderClientFilter(){
+      let items = serverItems.slice();
+      conditions.forEach(cond=>{
+        const c = cond.toLowerCase();
+        if(!c) return;
+        items = items.filter(it => 
+          (it.FavoriteName||it.favorite_name||'').toLowerCase().includes(c) ||
+          (it.OriginalName||it.original_name||'').toLowerCase().includes(c) ||
+          (it.Description||it.description||'').toLowerCase().includes(c) ||
+          (it.DirPath||it.dir_path||'').toLowerCase().includes(c)
+        );
+      });
+      renderTable(items);
+    }
+    async function loadServer(q, tags){
+      pageSize = parseInt(document.getElementById('pageSize').value, 10) || 20;
+      const params = new URLSearchParams();
+      params.set('page', page); params.set('pageSize', pageSize);
+      if(q) params.set('q', q);
+      if(tags && tags.length) params.set('tags', tags.join(','));
+      const res = await fetch(api + '/api/favorites?' + params.toString(), {credentials:'same-origin'});
+      if(res.status===401){ location.href='/login'; return; }
+      const data = await res.json();
+      serverItems = data.items || [];
+      const total = data.total || 0;
+      document.getElementById('pageInfo').textContent = `第 ${page} 页 / 总计 ${Math.ceil(total / pageSize)} 页（${total} 条）`;
+      renderClientFilter();
+    }
+    function renderTable(items){
+      const list = document.getElementById('favList');
+      list.innerHTML = '';
+      items.forEach(it=>{
+        const item = document.createElement('div');
+        item.className='fav-item';
+        const line1 = document.createElement('div');
+        line1.className='fav-line1';
+        const name = document.createElement('div'); name.className='name'; name.textContent = it.FavoriteName||it.favorite_name||'-';
+        const path = document.createElement('div'); path.className='path'; path.textContent = it.DirPath||it.dir_path||'-';
+        const desc = document.createElement('div'); desc.className='desc'; desc.textContent = it.Description||it.description||'';
+        const time = document.createElement('div'); time.className='time'; time.textContent = it.CreatedAt||it.created_at||'-';
+        line1.appendChild(name); line1.appendChild(path); line1.appendChild(desc); line1.appendChild(time);
+        const line2 = document.createElement('div');
+        line2.className='fav-line2';
+        const tagsBox = document.createElement('div'); tagsBox.className='tag-list';
+        const tags = it.Tags || it.tags || [];
+        if(tags.length === 0){
+          const empty = document.createElement('span'); empty.style.color='#8b949e'; empty.textContent='暂无标签';
+          tagsBox.appendChild(empty);
+        }else{
+          tags.forEach(name=>{
+            const chip = document.createElement('span'); chip.className='chip'; chip.textContent=name;
+            tagsBox.appendChild(chip);
+          });
+        }
+        const actions = document.createElement('div'); actions.className='fav-actions';
+        const readBtn = document.createElement('button'); readBtn.textContent='读取'; readBtn.addEventListener('click', ()=>{
+          const p = it.DirPath||it.dir_path||'';
+          if(/^https?:\/\//i.test(p)){ window.open(p, '_blank'); } else { window.open('/local/gallery.html?dir='+encodeURIComponent(p), '_blank'); }
+        });
+        actions.appendChild(readBtn);
+        line2.appendChild(tagsBox);
+        line2.appendChild(actions);
+        item.appendChild(line1);
+        item.appendChild(line2);
+        list.appendChild(item);
+      });
+    }
+    function openWebFavModal(){
+      document.getElementById('webFavMask').style.display='flex';
+      document.getElementById('webFavName').value='';
+      document.getElementById('webFavPath').value='';
+      document.getElementById('webFavDesc').value='';
+      document.getElementById('webTagChips').innerHTML='';
+      document.getElementById('webTagInput').value='';
+      document.getElementById('webTagSuggest').style.display='none';
+      loadAllTagsForWeb();
+      const box = document.getElementById('webTagAllBox');
+      box.classList.remove('expanded');
+      document.getElementById('webTagToggle').textContent='展开';
+    }
+    function addWebChip(name){
+      if(!name) return;
+      const chips = Array.from(document.querySelectorAll('#webTagChips .chip')).map(c=>c.dataset.name);
+      if(chips.includes(name)) return;
+      const chip = document.createElement('span');
+      chip.className='chip';
+      chip.dataset.name = name;
+      const label = document.createElement('span');
+      label.textContent = name;
+      const close = document.createElement('span');
+      close.className = 'close';
+      close.textContent = '×';
+      close.style.cursor='pointer';
+      close.style.background='#30363d';
+      close.style.color='#c9d1d9';
+      close.style.borderRadius='999px';
+      close.style.padding='0 6px';
+      close.style.lineHeight='18px';
+      close.addEventListener('click', (e)=>{ e.stopPropagation(); chip.remove(); });
+      chip.appendChild(label);
+      chip.appendChild(close);
+      document.getElementById('webTagChips').appendChild(chip);
+    }
+    document.getElementById('webTagInput').addEventListener('input', async ()=>{
+      const q = document.getElementById('webTagInput').value.trim();
+      const listBox = document.getElementById('webTagSuggest');
+      if(!q){ listBox.style.display='none'; listBox.innerHTML=''; return; }
+      const res = await fetch(api + '/api/tags/search?q=' + encodeURIComponent(q), {credentials:'same-origin'});
+      if(res.status===401){ location.href='/login'; return; }
+      const d = await res.json();
+      const items = d.items || [];
+      listBox.innerHTML = '';
+      items.forEach(it=>{
+        const div = document.createElement('div');
+        div.textContent = it.Name || it.name;
+        div.addEventListener('click', ()=>{
+          addWebChip(div.textContent);
+          listBox.style.display='none';
+          document.getElementById('webTagInput').value='';
+        });
+        listBox.appendChild(div);
+      });
+      listBox.style.display = items.length ? 'block' : 'none';
+    });
+    document.getElementById('webTagAdd').addEventListener('click', async ()=>{
+      const name = document.getElementById('webTagInput').value.trim();
+      if(!name) return;
+      const form = new URLSearchParams(); form.set('name', name);
+      const res = await fetch(api + '/api/tags/add', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:form.toString(), credentials:'same-origin'});
+      if(res.status===401){ location.href='/login'; return; }
+      const d = await res.json();
+      if(res.ok && d && d.ok){ addWebChip(name); document.getElementById('webTagInput').value=''; document.getElementById('webTagSuggest').style.display='none'; }
+    });
+    async function loadAllTagsForWeb(){
+      const res = await fetch(api + '/api/tags/all', {credentials:'same-origin'});
+      if(res.status===401){ location.href='/login'; return; }
+      const d = await res.json();
+      const items = d.items || [];
+      const list = document.getElementById('webTagAllList');
+      list.innerHTML = '';
+      if(!items.length){
+        const empty = document.createElement('div');
+        empty.style.color = '#8b949e';
+        empty.textContent = '暂无标签，右侧可通过添加创建新标签';
+        list.appendChild(empty);
+      } else {
+        items.forEach(it=>{
+          const chip = document.createElement('span');
+          chip.className='chip';
+          chip.textContent = it.Name || it.name;
+          chip.addEventListener('click', ()=>addWebChip(chip.textContent));
+          list.appendChild(chip);
+        });
+      }
+    }
+    document.getElementById('webTagToggle').addEventListener('click', ()=>{
+      const box = document.getElementById('webTagAllBox');
+      const btn = document.getElementById('webTagToggle');
+      if(box.classList.contains('expanded')){
+        box.classList.remove('expanded');
+        btn.textContent = '展开';
+        document.getElementById('webTagAllList').style.maxHeight='120px';
+        document.getElementById('webTagAllList').style.overflow='hidden';
+      }else{
+        box.classList.add('expanded');
+        btn.textContent = '收起';
+        document.getElementById('webTagAllList').style.maxHeight='400px';
+        document.getElementById('webTagAllList').style.overflow='auto';
+      }
+    });
+    document.getElementById('addWebFav').addEventListener('click', openWebFavModal);
+    document.getElementById('webFavCancel').addEventListener('click', ()=>{ document.getElementById('webFavMask').style.display='none'; });
+    document.getElementById('webFavSave').addEventListener('click', async ()=>{
+      const name = document.getElementById('webFavName').value.trim();
+      const path = document.getElementById('webFavPath').value.trim();
+      const desc = document.getElementById('webFavDesc').value.trim();
+      const tags = Array.from(document.querySelectorAll('#webTagChips .chip')).map(c=>c.dataset.name).join(',');
+      if(!name || !path) return;
+      if(!/^https?:\/\//i.test(path)) return;
+      const form = new URLSearchParams();
+      form.set('path', path);
+      form.set('original', name);
+      form.set('favorite', name);
+      form.set('desc', desc);
+      form.set('tags', tags);
+      const res = await fetch(api + '/api/favorite', {method:'POST', headers:{'Content-Type':'application/x-www-form-urlencoded'}, body:form.toString(), credentials:'same-origin'});
+      if(res.status===401){ location.href='/login'; return; }
+      const d = await res.json();
+      if(res.ok && d && d.ok){
+        document.getElementById('webFavMask').style.display='none';
+        page = 1;
+        loadServer('', tagFilter);
+      }
+    });
+    async function loadAllTags(){
+      const res = await fetch(api + '/api/tags/all', {credentials:'same-origin'});
+      if(res.status===401){ location.href='/login'; return; }
+      const d = await res.json();
+      const list = d.items || [];
+      const box = document.getElementById('allTags');
+      box.innerHTML = '';
+      list.forEach(it=>{
+        const chip = document.createElement('span');
+        chip.className='chip';
+        chip.textContent = it.Name || it.name;
+        chip.addEventListener('click', ()=>{ document.getElementById('tagInput').value = chip.textContent; });
+        box.appendChild(chip);
+      });
+    }
+    document.getElementById('tagApply').addEventListener('click', ()=>{
+      const v = document.getElementById('tagInput').value.trim();
+      tagFilter = v ? [v] : [];
+      page = 1;
+      loadServer('', tagFilter);
+    });
+    document.getElementById('prev').addEventListener('click', ()=>{
+      if(page>1){ page--; loadServer('', tagFilter); }
+    });
+    document.getElementById('next').addEventListener('click', ()=>{
+      page++; loadServer('', tagFilter);
+    });
+    function initButtons(){
+      const resPromise = fetch(api + '/api/buttons', {credentials:'same-origin'});
+      resPromise.then(async res=>{
+        if(res.status===401){ location.href='/login'; return; }
+        const data = await res.json();
+        const items = data.items || [];
+        const sidebar = document.getElementById('sidebar-list');
+        const titleLeft = document.querySelector('.title-left');
+        const titleRightBox = document.querySelector('.title-right');
+        sidebar.innerHTML='';
+        items.forEach(it=>{
+          const name = it.Name || it.name;
+          const url = it.Url || it.url;
+          const type = it.Type || it.type;
+          if(type === 'left-sidebar'){
+            const a = document.createElement('a'); a.className='item'; a.textContent=name; a.href=url; sidebar.appendChild(a);
+          } else if(type === 'title'){
+            const b = document.createElement('button'); b.className='btn'; b.textContent=name; b.onclick=()=>{ location.href=url; }; titleLeft.appendChild(b);
+          } else if(type === 'title-right'){
+            const b = document.createElement('button'); b.className='btn'; b.textContent=name; b.onclick=()=>{ location.href=url; }; titleRightBox.insertBefore(b, titleRightBox.firstChild);
+          }
+        });
+      });
+    }
+    addSearchRow('');
+    loadServer('', []);
+    loadAllTags();
+    initButtons();
+  </script>
+</body>
+</html>

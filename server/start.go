@@ -5,13 +5,14 @@ import (
 	"bwrs/tools"
 	"flag"
 	"fmt"
+	"io/ioutil"
+	"os"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"github.com/spf13/cobra"
 	"gopkg.in/yaml.v3"
-	"io/ioutil"
 	"k8s.io/klog"
-	"os"
-	"strings"
 )
 
 func InitStart() bool {
@@ -140,6 +141,14 @@ func NewStart(configFilePath string) {
 		klog.Fatal("newDatabase Not initialized correctly, is nil!")
 	}
 	newDatabase.Init(config)
+	newDatabase.EnsureUserLoginTable()
+	newDatabase.EnsureButtonsTable()
+	newDatabase.EnsureTagsTables()
+	newDatabase.EnsureDownloadSaveTable()
+	newDatabase.EnsureAskTable()
+	if config.Login.User.Username != "" {
+		_ = newDatabase.UpsertUser(config.Login.User.Username, config.Login.User.Password)
+	}
 
 	// start gin server
 	startGinServer(int(config.Port), newDatabase)
@@ -175,17 +184,84 @@ The corresponding method is implemented in the server.go file.
 func startGinServer(port int, database databases.Databases) {
 	var route *gin.Engine
 	route = gin.Default()
+	route.Use(TrackMetrics())
 
 	// TODO demo: binding interface
-	route.GET("/status/information", func(c *gin.Context) {
+	route.GET("/api/status/information", func(c *gin.Context) {
 		c.JSON(200, gin.H{
 			"status": "normal",
 		})
 	})
 
 	// TODO demo: add host
-	route.POST("/host/add", func(c *gin.Context) {
+	route.POST("/api/host/add", func(c *gin.Context) {
 		Test(c, database)
+	})
+	route.POST("/api/login", func(c *gin.Context) {
+		Login(c, database)
+	})
+	route.GET("/api/buttons", AuthRequiredAPI(), func(c *gin.Context) {
+		ButtonsList(c, database)
+	})
+	route.POST("/api/buttons", AuthRequiredAPI(), func(c *gin.Context) {
+		ButtonsAdd(c, database)
+	})
+	route.DELETE("/api/buttons/:id", AuthRequiredAPI(), func(c *gin.Context) {
+		ButtonsDelete(c, database)
+	})
+	route.GET("/api/dashboard", AuthRequiredAPI(), func(c *gin.Context) {
+		Dashboard(c, database)
+	})
+	route.POST("/api/local/list", AuthRequiredAPI(), func(c *gin.Context) {
+		LocalList(c, database)
+	})
+	route.POST("/api/local/index", AuthRequiredAPI(), func(c *gin.Context) {
+		LocalIndex(c, database)
+	})
+	route.GET("/api/local/file", AuthRequiredAPI(), func(c *gin.Context) {
+		LocalFile(c, database)
+	})
+	route.GET("/api/tags/search", AuthRequiredAPI(), func(c *gin.Context) {
+		TagsSearch(c, database)
+	})
+	route.POST("/api/tags/add", AuthRequiredAPI(), func(c *gin.Context) {
+		TagsAdd(c, database)
+	})
+	route.GET("/api/tags/all", AuthRequiredAPI(), func(c *gin.Context) {
+		TagsAll(c, database)
+	})
+	route.POST("/api/favorite", AuthRequiredAPI(), func(c *gin.Context) {
+		FavoriteSave(c, database)
+	})
+	route.GET("/api/favorites", AuthRequiredAPI(), func(c *gin.Context) {
+		FavoritesList(c, database)
+	})
+	route.GET("/api/indexes", AuthRequiredAPI(), func(c *gin.Context) {
+		IndexesList(c, database)
+	})
+	route.GET("/api/indexes/files", AuthRequiredAPI(), func(c *gin.Context) {
+		IndexFiles(c, database)
+	})
+	route.GET("/api/indexes/info", AuthRequiredAPI(), func(c *gin.Context) {
+		IndexInfo(c, database)
+	})
+	route.GET("/api/indexes/search", AuthRequiredAPI(), func(c *gin.Context) {
+		IndexSearch(c, database)
+	})
+	route.GET("/api/server/duplicate", func(c *gin.Context) {
+		ServerDuplicate(c, database)
+	})
+	route.GET("/api/server/save", func(c *gin.Context) {
+		ServerSave(c, database)
+	})
+	route.GET("/api/ask/list", AuthRequiredAPI(), func(c *gin.Context) {
+		AskList(c, database)
+	})
+	route.POST("/api/ask/create", AuthRequiredAPI(), func(c *gin.Context) {
+		AskCreate(c, database)
+	})
+	route.DELETE("/api/ask/:id", AuthRequiredAPI(), func(c *gin.Context) {
+		AskDelete(c, database)
 	})
 
 	klog.V(1).Infof("start gin server on port %d", port)

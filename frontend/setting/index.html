@@ -1,0 +1,160 @@
+<!doctype html>
+<html lang="zh-CN">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>设置</title>
+  <style>
+    body{background:#0d1117;color:#c9d1d9;font-family:system-ui,-apple-system,Segoe UI,Roboto,Ubuntu,Cantarell,Noto Sans,sans-serif;margin:0}
+    .layout{display:flex;min-height:100vh}
+    .sidebar{width:240px;background:#161b22;border-right:1px solid #30363d;padding:16px}
+    .sidebar a{display:block;color:#c9d1d9;text-decoration:none;padding:8px 10px;border-radius:6px}
+    .sidebar a.active{background:#21262d}
+    .content{flex:1;padding:20px}
+    h1{font-size:20px;margin:0 0 16px}
+    table{width:100%;border-collapse:collapse;margin-top:12px}
+    th,td{border-bottom:1px solid #30363d;padding:8px 6px;text-align:left}
+    button{padding:6px 10px;border-radius:6px;border:1px solid #30363d;background:#21262d;color:#c9d1d9;cursor:pointer}
+    .row-actions button{margin-right:6px}
+    .toolbar{display:flex;justify-content:flex-end;margin-top:12px}
+    select,input{padding:6px 8px;border:1px solid #30363d;border-radius:6px;background:#0d1117;color:#c9d1d9}
+    .form-row{display:flex;gap:8px;margin-top:12px}
+  </style>
+</head>
+<body>
+  <div class="layout">
+    <div class="sidebar">
+      <a href="#" class="active" id="btnSettingLink">按钮设置</a>
+      <a href="#" id="askSettingLink">ASK管理</a>
+    </div>
+    <div class="content">
+      <div id="section-buttons">
+        <h1>按钮设置</h1>
+        <div id="list"></div>
+        <div class="form-row">
+          <input id="name" placeholder="按钮名称">
+          <input id="url" placeholder="对应地址">
+          <select id="type">
+            <option value="left-sidebar">左侧边栏</option>
+            <option value="title">标题栏</option>
+            <option value="title-right">标题栏右侧</option>
+          </select>
+          <button id="add">添加</button>
+        </div>
+      </div>
+      <div id="section-ask" style="display:none">
+        <h1>ASK管理</h1>
+        <div id="ask-list"></div>
+        <div class="toolbar">
+          <button id="ask-create">新建</button>
+        </div>
+      </div>
+    </div>
+  </div>
+  <script>
+    const api = window.location.origin;
+    async function load(){
+      const res = await fetch(api + '/api/buttons', {credentials:'same-origin'});
+      if(res.redirected || res.status === 401){ window.location.href = '/login'; return; }
+      const data = await res.json();
+      const items = (data && data.items) || [];
+      const list = document.getElementById('list');
+      let html = '<table><thead><tr><th>ID</th><th>名称</th><th>地址</th><th>类型</th><th>操作</th></tr></thead><tbody>';
+      for(const it of items){
+        html += `<tr><td>${it.Id||it.id}</td><td>${it.Name||it.name}</td><td>${it.Url||it.url}</td><td>${it.Type||it.type}</td>
+          <td class="row-actions"><button data-id="${it.Id||it.id}" class="del">删除</button></td></tr>`;
+      }
+      html += '</tbody></table>';
+      list.innerHTML = html;
+      document.querySelectorAll('.del').forEach(b=>{
+        b.addEventListener('click', async ()=>{
+          const id = b.getAttribute('data-id');
+          const res = await fetch(api + '/api/buttons/' + id, {method:'DELETE', credentials:'same-origin'});
+          if(res.redirected || res.status === 401){ window.location.href = '/login'; return; }
+          const d = await res.json();
+          if(res.ok && d && d.ok){ load(); }
+        });
+      });
+    }
+    document.getElementById('add').addEventListener('click', async ()=>{
+      const name = document.getElementById('name').value.trim();
+      const url = document.getElementById('url').value.trim();
+      const type = document.getElementById('type').value;
+      if(!name || !url){ return; }
+      const form = new URLSearchParams();
+      form.set('name', name);
+      form.set('url', url);
+      form.set('type', type);
+      const res = await fetch(api + '/api/buttons', {
+        method:'POST',
+        headers:{'Content-Type':'application/x-www-form-urlencoded'},
+        body: form.toString(),
+        credentials:'same-origin'
+      });
+      if(res.redirected || res.status === 401){ window.location.href = '/login'; return; }
+      const d = await res.json();
+      if(res.ok && d && d.ok){
+        document.getElementById('name').value='';
+        document.getElementById('url').value='';
+        load();
+      }
+    });
+    async function loadAsk(){
+      const res = await fetch(api + '/api/ask/list', {credentials:'same-origin'});
+      if(res.redirected || res.status === 401){ window.location.href = '/login'; return; }
+      const data = await res.json();
+      const items = (data && data.items) || [];
+      const list = document.getElementById('ask-list');
+      let html = '<table><thead><tr><th>ID</th><th>ASK</th><th>操作</th></tr></thead><tbody>';
+      for(const it of items){
+        html += `<tr><td>${it.Id||it.id}</td><td>${it.Ask||it.ask}</td><td class="row-actions"><button class="ask-del" data-id="${it.Id||it.id}">删除</button></td></tr>`;
+      }
+      html += '</tbody></table>';
+      list.innerHTML = html;
+      document.querySelectorAll('.ask-del').forEach(b=>{
+        b.addEventListener('click', async ()=>{
+          const id = b.getAttribute('data-id');
+          if(!id) return;
+          if(!confirm('确认删除该ASK？')) return;
+          if(!confirm('再次确认删除？')) return;
+          const res = await fetch(api + '/api/ask/' + id, {method:'DELETE', credentials:'same-origin'});
+          if(res.redirected || res.status === 401){ window.location.href = '/login'; return; }
+          const d = await res.json();
+          if(res.ok && d && d.ok){ loadAsk(); }
+        });
+      });
+    }
+    document.getElementById('ask-create').addEventListener('click', async ()=>{
+      const res = await fetch(api + '/api/ask/create', {
+        method:'POST',
+        credentials:'same-origin'
+      });
+      if(res.redirected || res.status === 401){ window.location.href = '/login'; return; }
+      const d = await res.json();
+      if(res.ok && d && d.id && d.ask){
+        loadAsk();
+      }
+    });
+    const btnLink = document.getElementById('btnSettingLink');
+    const askLink = document.getElementById('askSettingLink');
+    function setActive(link){
+      document.querySelectorAll('.sidebar a').forEach(a=>a.classList.remove('active'));
+      link.classList.add('active');
+    }
+    btnLink.addEventListener('click', (e)=>{
+      e.preventDefault();
+      setActive(btnLink);
+      document.getElementById('section-buttons').style.display='';
+      document.getElementById('section-ask').style.display='none';
+    });
+    askLink.addEventListener('click', (e)=>{
+      e.preventDefault();
+      setActive(askLink);
+      document.getElementById('section-buttons').style.display='none';
+      document.getElementById('section-ask').style.display='';
+      loadAsk();
+    });
+    load();
+  </script>
+</body>
+</html>
