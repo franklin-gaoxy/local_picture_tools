@@ -72,14 +72,18 @@ DROP TABLE IF EXISTS `downloadsave`;
 /*!40101 SET @saved_cs_client     = @@character_set_client */;
 /*!50503 SET character_set_client = utf8mb4 */;
 CREATE TABLE `downloadsave` (
-  `id` bigint NOT NULL AUTO_INCREMENT,
-  `group` varchar(255) DEFAULT NULL,
-  `name` varchar(255) NOT NULL,
-  `desc` text,
-  `local_address` text,
+  `id` bigint NOT NULL AUTO_INCREMENT COMMENT 'ID，自增',
+  `group` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci DEFAULT NULL COMMENT '组名称',
+  `name` varchar(255) CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci NOT NULL COMMENT '名称信息',
+  `desc` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '描述信息',
+  `local_address` text CHARACTER SET utf8mb4 COLLATE utf8mb4_0900_ai_ci COMMENT '本地存储的路径',
+  `type` varchar(255) DEFAULT NULL COMMENT '用于指定类型，当下载的存储地址更换时，可以根据此字段进行快速检索，但是需要每次更换地址的时候同步更换type',
   PRIMARY KEY (`id`),
-  UNIQUE KEY `uniq_name` (`name`)
-) ENGINE=InnoDB AUTO_INCREMENT=2 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+  UNIQUE KEY `uniq_name` (`name`),
+  KEY `idx_downloadsave_group` (`group`),
+  KEY `idx_downloadsave_type` (`type`),
+  KEY `idx_downloadsave_local_address` (`local_address`(128))
+) ENGINE=InnoDB AUTO_INCREMENT=8192 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -150,7 +154,7 @@ CREATE TABLE `tags` (
   `name` varchar(255) NOT NULL,
   PRIMARY KEY (`id`),
   UNIQUE KEY `name` (`name`)
-) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=5 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci COMMENT='存储了用户标签等数据';
 /*!40101 SET character_set_client = @saved_cs_client */;
 
 --
@@ -167,7 +171,7 @@ CREATE TABLE `userlogin` (
   `token` varchar(255) DEFAULT '',
   PRIMARY KEY (`id`),
   UNIQUE KEY `username` (`username`)
-) ENGINE=InnoDB AUTO_INCREMENT=28 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
+) ENGINE=InnoDB AUTO_INCREMENT=29 DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_0900_ai_ci;
 /*!40101 SET character_set_client = @saved_cs_client */;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
 
@@ -179,4 +183,4 @@ CREATE TABLE `userlogin` (
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-01-15 11:33:07
+-- Dump completed on 2026-01-15 18:45:23

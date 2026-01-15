@@ -37,7 +37,7 @@ CREATE TABLE `buttons` (
 
 LOCK TABLES `buttons` WRITE;
 /*!40000 ALTER TABLE `buttons` DISABLE KEYS */;
-INSERT INTO `buttons` VALUES (1,'gaoxy.franklin','/test/','left-sidebar'),(2,'bing','https://cn.bing.com/','title'),(4,'本地展示','/local/','left-sidebar'),(5,'数据库索引','/indexes','left-sidebar'),(6,'收藏','/favorites/index.html','left-sidebar');
+INSERT INTO `buttons` VALUES (1,'gaoxy.franklin','/','left-sidebar'),(2,'bing','https://cn.bing.com/','title'),(4,'本地展示','/local/','left-sidebar'),(5,'数据库索引','/indexes','left-sidebar'),(6,'收藏','/favorites/index.html','left-sidebar');
 /*!40000 ALTER TABLE `buttons` ENABLE KEYS */;
 UNLOCK TABLES;
 /*!40103 SET TIME_ZONE=@OLD_TIME_ZONE */;
@@ -50,4 +50,4 @@ UNLOCK TABLES;
 /*!40101 SET COLLATION_CONNECTION=@OLD_COLLATION_CONNECTION */;
 /*!40111 SET SQL_NOTES=@OLD_SQL_NOTES */;
 
--- Dump completed on 2026-01-15 11:33:07
+-- Dump completed on 2026-01-15 18:45:23
